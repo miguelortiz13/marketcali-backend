@@ -1,42 +1,35 @@
 # 🛒 MarketCali - Backend System
 
-**MarketCali** es una plataforma de gestión para supermercados diseñada con una arquitectura de **microservicios** escalable, seguridad robusta y un frontend moderno. El sistema orquesta múltiples servicios para gestionar inventarios, ventas, autenticación y configuración centralizada.
+**MarketCali** es una plataforma de gestión para supermercados diseñada con una arquitectura de **Monolito Modular**, seguridad robusta y un frontend moderno. El sistema consolida los dominios de negocio (inventarios, ventas, autenticación) en una única aplicación Spring Boot para facilitar el despliegue y mantenimiento, respaldado por Nginx para el frontend.
 
 ---
 
 ## 🏗️ Arquitectura Técnica
 
-El sistema implementa una arquitectura de microservicios basada en el ecosistema **Spring Cloud**, utilizando contenedores Docker para la orquestación.
+El sistema implementa una arquitectura modular donde cada dominio (`auth`, `product`, `sales`) está encapsulado en sus propios paquetes y módulos lógicos dentro del mismo proyecto monolítico.
 
 ### Diagrama de Comunicación
 ```mermaid
 graph TD
-    Client[Cliente Web/Mobile] --> Gateway[API Gateway (8088)]
-    Gateway --> Auth[Auth Service (8081/8089)]
-    Gateway --> Product[Product Service (8082)]
-    Gateway --> Sales[Sales Service (8083)]
+    Client[Navegador / Frontend React] --> Nginx[Servidor Nginx (Puerto 80)]
+    Nginx -. "/api/* y /auth/*" .-> Monolith[Spring Boot Monolith App (Puerto 8088)]
     
-    Auth --> DB_Auth[(MySQL Auth DB)]
-    Product --> DB_Product[(MySQL Product DB)]
-    Sales --> DB_Sales[(MySQL Sales DB)]
+    subgraph MonolithApp [Monolith Application]
+        AuthModule[Módulo Auth]
+        ProductModule[Módulo Productos]
+        SalesModule[Módulo Ventas]
+    end
     
-    ServiceRegistry[Discovery Service (Eureka)] -.-> Gateway
-    ServiceRegistry -.-> Auth
-    ServiceRegistry -.-> Product
-    ServiceRegistry -.-> Sales
+    Monolith --> DB[(MySQL 8.0 - marketcali_db)]
 ```
 
 ### Componentes del Sistema
 
 | Servicio | Puerto (Docker/Local) | Descripción Técnica |
 | :--- | :--- | :--- |
-| **Discovery Service** | `8761` | Servidor Eureka para el registro y descubrimiento dinámico de servicios. Permite el balanceo de carga del lado del cliente. |
-| **API Gateway** | `8088` | Puerta de enlace basada en Spring Cloud Gateway. Maneja enrutamiento, CORS (`http://localhost:5173`) y seguridad perimetral. |
-| **Auth Service** | `8081` / `8089` | Implementa seguridad `Spring Security` + `JWT`. Gestiona usuarios, roles y emisión de tokens. |
-| **Product Service** | `8082` | CRUD de productos. Persistencia en MySQL (`marketcali_product_db`). |
-| **Sales Service** | `8083` | Gestión de ventas y órdenes. Persistencia en MySQL (`marketcali_sales_db`). |
-| **Config Service** | `8888` | (Opcional) Servidor de configuración centralizada para perfiles distribuidos. |
-| **MySQL Database** | `3307` -> `3306` | Contenedor único de MySQL 8.0 que aloja múltiples esquemas (`auth`, `product`, `sales`). |
+| **Frontend (React + Nginx)** | `80` (Docker) / `5173` (Local) | Aplicación web (React/Vite). Nginx actúa como proxy reverso para delegar llamadas `/api/` y `/auth/` al monolito. |
+| **Monolith App** | `8088` | Backend centralizado en Spring Boot. Agrupa la seguridad (JWT) y la lógica de todos los módulos. |
+| **MySQL Database** | `3306` (Interno) / `3307` (Local) | Instancia única de MySQL alojando el esquema unificado `marketcali_db`. |
 
 ---
 
@@ -44,42 +37,38 @@ graph TD
 
 ### Backend
 *   **Java 17** (Eclipse Temurin)
-*   **Spring Boot 3.2.5**
-*   **Spring Cloud 2023.0.1** (Gateway, Netflix Eureka, Config)
-*   **Spring Data JPA** (Hibernate)
-*   **Spring Security** (JWT Authentication)
-*   **Lombok**
-*   **Maven**
+*   **Spring Boot 3.2.5** (Web, Data JPA, Security, Validation)
+*   **Hibernate** (Mapeo ORM)
+*   **Spring Security** (Autenticación JWT)
+*   **Lombok** (Generación de código)
+*   **Maven** (Gestión de dependencias)
 
 ### Frontend
 *   **React 18**
 *   **Vite**
-*   **Axios** (Cliente HTTP)
 *   **React Router Dom**
-*   **TailwindCSS** (Estilizado)
+*   **TailwindCSS / CSS Nativo**
+*   **Nginx** (Despliegue de producción y Proxy pass)
 
 ### Infraestructura
-*   **Docker & Docker Compose**
+*   **Docker & Docker Compose** (Orquestación local)
 *   **MySQL 8.0**
+*   **Terraform** (Aprovisionamiento IaC en Azure Container Apps - Ver `/terraform/README.md`)
 
 ---
 
 ## ⚙️ Configuración y Variables de Entorno
 
-El proyecto utiliza `application.yml` para configuración por defecto y sobreescritura mediante variables de entorno en Docker.
+El proyecto consolida la configuración en `monolith-app/src/main/resources/application.yml`. Utiliza perfiles de Spring (`dev`, `docker`).
 
-### Variables Principales (Docker Compose)
-Las siguientes variables se inyectan en los contenedores para la conexión entre servicios:
+### Variables Principales en Docker
+- `SPRING_DATASOURCE_URL`: url jdbc (`jdbc:mysql://mysql-db:3306/marketcali_db`)
+- `SPRING_PROFILES_ACTIVE`: `docker`
 
-- `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE`: URL del Discovery Service (`http://discovery-service:8761/eureka/`)
-- `SPRING_DATASOURCE_URL`: Cadena de conexión JDBC (ej. `jdbc:mysql://mysql-db:3306/marketcali_product_db`)
-- `SPRING_PROFILES_ACTIVE`: Perfil activo (usualmente `docker`).
-
-### Puertos Expuestos
-- **Frontend**: `http://localhost:80` (o `5173` en dev)
-- **API Gateway**: `http://localhost:8088`
-- **Eureka Dashboard**: `http://localhost:8761`
-- **MySQL**: `localhost:3307` (Credenciales: `root` / `root` o `miguel` / `12345`)
+### Puertos Expuestos a Localhost
+- **Frontend App**: `http://localhost:80` (A través de Nginx)
+- **Monolith App**: `http://localhost:8088` (Si se accede directamente al backend)
+- **MySQL DB**: `localhost:3307` (Credenciales por defecto: `miguel` / `12345` / DB: `marketcali_db`)
 
 ---
 
@@ -87,94 +76,86 @@ Las siguientes variables se inyectan en los contenedores para la conexión entre
 
 ### Opción A: Docker Compose (Recomendado)
 
-Levanta todo el ecosistema con un solo comando. Asegúrate de tener Docker corriendo.
+Levanta todo el ecosistema (Base de Datos, Backend y Frontend) con un solo comando usando Docker. Antes de esto, requieres haber generado el `.jar` de Spring Boot.
 
 ```bash
+# 1. Compilar el monolito primero
+mvn clean package -DskipTests
+
+# 2. Construir e iniciar contenedores
 docker-compose up -d --build
 ```
 
 Esto iniciará:
-1.  **MySQL** (y creará las BBDD automáticamente via `init.sql`).
-2.  **Discovery Service**.
-3.  **Config Service** (si activo).
-4.  **Microservicios de Negocio** (Auth, Product, Sales).
-5.  **API Gateway**.
-6.  **Frontend**.
+1.  **MySQL** (Se inicializa la BBDD automáticamente con `init.sql`).
+2.  **Monolith App** (Backend).
+3.  **Frontend** (Nginx mapeando al puerto 80).
 
-Accede a la aplicación en `http://localhost`.
+Accede a la aplicación gráfica desde: **[http://localhost](http://localhost)**. Para apagar el entorno usa `docker-compose down`.
 
-### Opción B: Ejecución Manual (Desarrollo)
+### Opción B: Ejecución Manual para Desarrollo Local
 
-Si deseas correr los servicios individualmente para depuración:
+Si necesitas editar el código en vivo (`hot reload`), es recomendable no usar Docker para las aplicaciones.
 
-1.  **Infraestructura Base**:
+1.  **Levantar solo la Base de Datos:**
     ```bash
-    # Iniciar MySQL (o usar docker solo para db)
     docker-compose up -d mysql-db
     ```
-
-2.  **Discovery Service**:
+2.  **Iniciar Backend (Monolith-App) mediante Maven:**
     ```bash
-    cd discovery-service && ./mvnw spring-boot:run
+    cd monolith-app
+    ./mvnw spring-boot:run
     ```
-
-3.  **API Gateway & Servicios**:
-    Iniciar cada uno en terminales separadas:
+3.  **Iniciar Frontend (Vite):**
+    Abre una nueva terminal.
     ```bash
-    cd api-gateway && ./mvnw spring-boot:run
-    cd auth-service && ./mvnw spring-boot:run
-    cd product-service && ./mvnw spring-boot:run
-    cd sales-service && ./mvnw spring-boot:run
+    cd frontend
+    npm install
+    npm run dev
     ```
-
-4.  **Frontend**:
-    ```bash
-    cd frontend && npm install && npm run dev
-    ```
+    Visita `http://localhost:5173`. Las llamadas a `/api` y `/auth` en el entorno de desarrollo son interceptadas nativamente por Vite Proxy configurado en `vite.config.js`.
 
 ---
 
-## 🔌 API Endpoints (Gateway: 8088)
+## 🔌 API Endpoints (Backend: 8088)
 
-Todas las peticiones deben dirigirse al API Gateway.
+Al usar el frontend (puerto 80), todas las llamadas de tipo `/api/*` y `/auth/*` se enrutarán automáticamente al backend. Las siguientes son las familias de endpoints disponibles:
 
-### 🔐 Auth Service (`/auth`)
-*   `POST /auth/register`: Registro de usuarios.
-*   `POST /auth/login`: Autenticación y obtención de Bearer Token.
+### 🔐 Autenticación (`/auth`)
+*   `POST /auth/login`: Autenticación y obtención de JSON Web Token (Bearer).
+*   `POST /auth/register`: Registro de usuarios. Requiere `username`, `password`, `email` y `role`.
 
-### 📦 Product Service (`/api/productos`)
-*   `GET /api/productos`: Listar catálogo.
-*   `POST /api/productos`: Crear producto (Rol Admin/Empleado).
-*   `PUT /api/productos/{id}`: Actualizar stock/precio.
-*   `DELETE /api/productos/{id}`: Eliminar producto.
+### 📦 Módulo de Productos (`/api/productos`)
+*   `GET /api/productos`: Listar inventario (Público).
+*   `GET /api/productos/codigo/{codigoBarras}`: Ubicar producto mediante lector de barras.
+*   `POST /api/productos`: Dar de alta un nuevo producto (Requiere Rol Admin).
+*   `DELETE /api/productos/{id}`: Eliminar del inventario.
 
-### 💰 Sales Service (`/sales` o `/api/sales`)
-*   **Nota**: Revisar prefijo configurado en Gateway.
-*   `POST /sales`: Registrar nueva venta.
-*   `GET /sales/{id}`: Obtener detalle de venta.
-*   `GET /sales/history`: Historial de ventas (por usuario/fecha).
+### 💰 Módulo de Ventas (`/api/sales`)
+*   `POST /api/sales`: Registrar carrito y concretar factura de venta.
+
+*(Ver la documentación interna del código para más detalle de schemas y DTOs).*
 
 ---
 
-## 👥 Gestión de Usuarios y Roles
+## 👥 Roles del Sistema
 
-El sistema utiliza **RBAC** (Role-Based Access Control).
-
-| Rol | Permisos |
+| Rol | Permisos Otorgados |
 | :--- | :--- |
-| **ADMIN** | Acceso total. Gestión de usuarios, configuración del sistema, reportes globales. |
-| **EMPLEADO** | Gestión de inventario, registro de ventas, facturación. |
-| **CLIENTE** | Visualización de productos, carrito de compras, historial propio. |
+| **ADMIN** | Acceso global. Control Maestro de Inventario (CRUD), Creación/Eliminación de Usuarios, Consultas y Reportes globales. |
+| **USER / EMPLEADO** | Emisión de tickets/ventas (Checkout) y lectura de stock de productos. |
+
+> **Nota de inicialización:** Al levantar el sistema por primera vez, Spring Boot inyectará un usuario administrador predeterminado (`admin` / `admin`).
 
 ---
 
 ## 🤝 Contribución
 
 1.  Hacer Fork del repositorio.
-2.  Crear rama (`git checkout -b feature/NuevaFuncionalidad`).
-3.  Commit (`git commit -m 'Implementar X'`).
-4.  Push (`git push origin feature/NuevaFuncionalidad`).
-5.  Crear Pull Request.
+2.  Crear rama (`git checkout -b feature/ImplementarCajaPos`).
+3.  Commit de los cambios realizados.
+4.  Push a la rama (`git push origin feature/ImplementarCajaPos`).
+5.  Crear un Pull Request.
 
 ---
 **Desarrollado para MarketCali**
