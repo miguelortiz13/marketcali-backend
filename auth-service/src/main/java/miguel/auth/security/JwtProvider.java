@@ -9,8 +9,11 @@ import java.util.Date;
 
 @Component
 public class JwtProvider {
-    private final Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
-    private final long EXPIRATION_TIME = 3600000; // 1 hour
+    // Clave secreta estática en Base64 para que los tokens sobrevivan a los reinicios del servidor
+    // Para producción, esto debería venir de una variable de entorno (ej. @Value("${jwt.secret}"))
+    private final String secretKeyStr = "QzNaTzh0ZXN0c2VjcmV0a2V5Zm9ybWFya2V0Y2FsaXNlY3VyaXR5MTIzNDU2Nzg5MA==";
+    private final Key key = Keys.hmacShaKeyFor(io.jsonwebtoken.io.Decoders.BASE64.decode(secretKeyStr));
+    private final long EXPIRATION_TIME = 86400000; // 24 hours
 
     public String generateToken(String username) {
         return Jwts.builder()
