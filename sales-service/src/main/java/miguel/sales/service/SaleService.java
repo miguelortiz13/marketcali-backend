@@ -2,7 +2,6 @@ package miguel.sales.service;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import miguel.sales.dto.SaleItemRequest;
 import miguel.sales.dto.SaleRequest;
 import miguel.sales.model.Invoice;
 import miguel.sales.model.Sale;
