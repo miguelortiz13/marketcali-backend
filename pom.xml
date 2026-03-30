@@ -16,12 +16,10 @@
     <description>Marketcali Microservices Project</description>
     
     <modules>
-        <module>product-service</module>
-        <module>discovery-service</module>
-        <module>api-gateway</module>
         <module>auth-service</module>
-        <module>config-service</module>
+        <module>product-service</module>
         <module>sales-service</module>
+        <module>monolith-app</module>
     </modules>
 
     <properties>

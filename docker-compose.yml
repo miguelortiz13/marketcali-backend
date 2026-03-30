@@ -1,58 +1,12 @@
 services:
-  discovery-service:
-    build: ./discovery-service
-    ports:
-      - "8761:8761"
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-
-  api-gateway:
-    build: ./api-gateway
+  monolith-app:
+    build: ./monolith-app
     ports:
       - "8088:8088"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
-      - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_CLOUD_GATEWAY=DEBUG
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/marketcali_db
     depends_on:
-      - discovery-service
-
-  auth-service:
-    build: ./auth-service
-    ports:
-      - "8081:8081"
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
-    depends_on:
-      - discovery-service
-
-  product-service:
-    build: ./product-service
-    ports:
-      - "8082:8082"
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/marketcali_product_db
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
-    depends_on:
-      - discovery-service
-      - mysql-db
-
-  sales-service:
-    build: ./sales-service
-    ports:
-      - "8083:8083"
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/marketcali_sales_db
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
-    depends_on:
-      - discovery-service
       - mysql-db
 
   mysql-db:
@@ -61,7 +15,7 @@ services:
       - "3307:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: marketcali_product_db
+      MYSQL_DATABASE: marketcali_db
       MYSQL_USER: miguel
       MYSQL_PASSWORD: 12345
     volumes:
@@ -73,7 +27,7 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - api-gateway
+      - monolith-app
 
 volumes:
   mysql-data:
